@@ -1,37 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from setting.config import get_settings
 from schemas import users as UserSchema
 from schemas import items as ItemSchema
+from database.fake_db import get_db
 
-# fake db
-fake_db = {
-    "users": {
-        1: {
-            "name": "John",
-            "age": 35,
-            "email": "john@fakemail.com",
-            "birthday": "2000-01-01",
-        },
-        2: {
-            "name": "Jane",
-            "age": 25,
-            "email": "jane@fakemail.com",
-            "birthday": "2010-12-04",
-        }
-    },
-    "items": {
-        1: {
-            "name": "iPhone 12",
-            "price": 1000,
-            "brand": "Apple"
-        },
-        2: {
-            "name": "Galaxy S21",
-            "price": 800,
-            "brand": "Samsung"
-        }
-    }
-}
+fake_db = get_db()
 
 app = FastAPI()
 
@@ -39,21 +12,29 @@ app = FastAPI()
 def hello_world():
     return "Hello World"
 
+@app.get("/users", response_model= list[UserSchema.UserRead])
+def get_users_list(qry: str = None):
+    return fake_db["users"]
+
 @app.get("/users/{user_id}", response_model= UserSchema.UserRead)
 def get_user_by_id(user_id: int, qry: str = None):
-    if user_id not in fake_db["users"]:
-        return {"error": "User not found"}
-    return fake_db['users'][user_id]
+    for user in fake_db["users"]:
+        if user["id"]==user_id:
+            return user
+    raise HTTPException(status_code=404, detail="User not found")
 
-@app.post("/users", response_model=UserSchema.UserCreate)
+@app.post("/users", response_model=UserSchema.UserRead)
 def create_users(user: UserSchema.UserCreate):
-    fake_db["users"][user.id] = user
+    fake_db["users"].append(user)
     return user
 
 @app.delete("/users/{user_id}" )
 def delete_users(user_id: int):
-    user = fake_db["users"].pop(user_id)
-    return user
+    for user in fake_db["users"]:
+        if user["id"]==user_id:
+            fake_db["users"].remove(user)
+            return user
+    return {"error": "User not found"}
 
 
 @app.get("/items/{item_id}", response_model= ItemSchema.ItemRead)
