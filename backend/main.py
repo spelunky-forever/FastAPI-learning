@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from setting.config import get_settings
 from schemas import users as UserSchema
 from schemas import items as ItemSchema
@@ -12,8 +12,20 @@ app = FastAPI()
 def hello_world():
     return "Hello World"
 
-@app.get("/users", response_model= list[UserSchema.UserRead])
+@app.get("/users",
+         response_model= list[UserSchema.UserRead],
+         #description="Get list of users"
+)
 def get_users_list(qry: str = None):
+    """
+    Create an user list with all the information:
+
+    - **id**
+    - **name**
+    - **email**
+    - **avatar**
+
+    """
     return fake_db["users"]
 
 @app.get("/users/{user_id}", response_model= UserSchema.UserRead)
@@ -23,10 +35,17 @@ def get_user_by_id(user_id: int, qry: str = None):
             return user
     raise HTTPException(status_code=404, detail="User not found")
 
-@app.post("/users", response_model=UserSchema.UserRead)
+@app.post("/users",
+          response_model=UserSchema.UserRead,
+          status_code=status.HTTP_201_CREATED
+)
 def create_users(user: UserSchema.UserCreate):
     fake_db["users"].append(user)
     return user
+
+@app.post("/userCreate" , deprecated=True)
+def create_user_deprecated(newUser: UserSchema.UserCreate ):
+    return "deprecated"
 
 @app.delete("/users/{user_id}" )
 def delete_users(user_id: int):
