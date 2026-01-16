@@ -8,7 +8,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     age: int = Field(gt=0, lt=100)
     email: EmailStr = Field()
-    birthday: date = Field(gt=date(2000, 1, 1), lt=date(2005, 1, 1))
+    birthday: date = Field()
     name: str = Field(min_length=1)
     password: str = Field(min_length=6)
     avatar: Optional[str] = Field(default=None, min_length=3)
