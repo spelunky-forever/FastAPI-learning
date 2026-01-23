@@ -3,6 +3,8 @@ from setting.config import get_settings
 from database.fake_db import get_db
 from sqlalchemy import text
 from database.generic import get_db
+from model.user import User
+from model.item import Item
 
 fake_db = get_db()
 
@@ -39,4 +41,27 @@ def get_infor():
         "database_url": settings.database_url,
         "database": str(database)
     }
+
+@router.get("/test/insert")
+def test():
+    db_session = get_db()
+    result = {"user": None, "items": None, "user.items": None}
+    try:
+        test_user = User("123456", "test0", 0, None, "2000-01-01", "123@email.com")
+        db_session.add(test_user)
+        db_session.commit()
+        result["user"] = test_user
+
+        test_item = Item("item0",99.9, "brand0", "test0", test_user.id)
+        db_session.add(test_item)
+        db_session.commit()
+        result["item"] = test_item
+
+        result["user.items"] = test_user.items
+    except Exception as e:
+        print(e)
+
+    return result
+    
+
 
