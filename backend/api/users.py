@@ -1,47 +1,90 @@
 from fastapi import APIRouter, HTTPException, status
 from schemas import users as UserSchema
-from database.fake_db import get_db
-
-fake_db = get_db()
+from database.generic import get_db
+from model.user import User as UserModel
+from sqlalchemy import select, update, delete
+from fastapi import Depends
 
 router = APIRouter(tags=["users"],prefix="/api/users")
 
 @router.get("/",
-         response_model= list[UserSchema.UserRead],
-         #description="Get list of users"
+         response_model= list[UserSchema.UserinforResponse],
 )
-def get_users_list(qry: str = None):
-    """
-    Create an user list with all the information:
-
-    - **id**
-    - **name**
-    - **email**
-    - **avatar**
-
-    """
-    return fake_db["users"]
+def get_users_infor(qry: str = None, db = Depends(get_db)):
+    stmt = select(UserModel)
+    result = db.scalars(stmt).all()
+    return result
 
 @router.get("/{user_id}", response_model= UserSchema.UserRead)
-def get_user_by_id(user_id: int, qry: str = None):
-    for user in fake_db["users"]:
-        if user["id"]==user_id:
-            return user
-    raise HTTPException(status_code=404, detail="User not found")
+def get_user_by_id(user_id: int, qry: str = None, db = Depends(get_db)):
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = db.scalar(stmt)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
 
 @router.post("/",
           response_model=UserSchema.UserRead,
           status_code=status.HTTP_201_CREATED
 )
-def create_users(user: UserSchema.UserCreate):
-    fake_db["users"].append(user)
-    return user
+def create_users(new_user: UserSchema.UserCreate, db = Depends(get_db)):
+    user = UserModel(
+        password = new_user.password,
+        name = new_user.name,
+        age = new_user.age,
+        avatar = new_user.avatar,
+        birthday = new_user.birthday,
+        email = new_user.email
+    )
+
+    stmt = select(UserModel.id).where(UserModel.email == new_user.email)
+    result = db.scalar(stmt)
+    if result is not None:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return vars(user)
 
 @router.delete("/{user_id}")
-def delete_users(user_id: int):
-    for user in fake_db["users"]:
-        if user["id"]==user_id:
-            fake_db["users"].remove(user)
-            return user
-    return {"error": "User not found"}
+def delete_users(user_id: int, db = Depends(get_db)):
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = db.scalar(stmt)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    stmt = delete(UserModel).where(UserModel.id == user_id)
+    db.execute(stmt)
+    db.commit()
+    return {"message": "User deleted successfully"}
 
+@router.patch("/update_optional/{user_id}", response_model=UserSchema.UserUpdateResponse)
+def update_user_optional(user_id: int, user_update: UserSchema.UserBase, db = Depends(get_db)):
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = db.scalar(stmt)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = user_update.model_dump(exclude_unset=True)
+    stmt = update(UserModel).where(UserModel.id == user_id).values(**update_data)
+    db.execute(stmt)
+    db.commit()
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = db.scalar(stmt)
+    return result
+        
+@router.put("/change_password/{user_id}")
+def change_password(user_id: int, update_info: UserSchema.UserPasswordUpdate, db = Depends(get_db)):
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = db.scalar(stmt)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if result.password != update_info.old_password:
+        raise HTTPException(status_code=400, detail="Password validation failed")
+
+    stmt = update(UserModel).where(UserModel.id == user_id).values(password=update_info.new_password)
+    db.execute(stmt)
+    db.commit()
+    return {"message": "Password updated successfully"}

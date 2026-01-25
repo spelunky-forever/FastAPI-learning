@@ -1,9 +1,13 @@
 from datetime import date
 from typing import Optional, ClassVar
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 class UserBase(BaseModel):
-    id: int
+    age: Optional[int] = Field(gt=-1, lt=100, default=None)
+    email: Optional[EmailStr] = Field(default=None)
+    birthday: Optional[date] = Field(default=None)
+    name: Optional[str] = Field(default=None, min_length=1)
+    avatar: Optional[str] = Field(default=None, min_length=3)
 
 class UserCreate(UserBase):
     age: int = Field(gt=0, lt=100)
@@ -27,8 +31,16 @@ class UserCreate(UserBase):
         }
     }
     
+class UserRead(BaseModel):
+    id: int
 
-class UserRead(UserBase):
-    name: str
-    email: str
-    avatar: Optional[str]
+class UserPasswordUpdate(BaseModel):
+    old_password: str = Field(min_length=6)
+    new_password: str = Field(min_length=6)
+
+class UserUpdateResponse(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
+class UserinforResponse(UserBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
