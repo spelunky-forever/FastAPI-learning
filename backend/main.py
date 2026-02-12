@@ -11,7 +11,7 @@ app.include_router(items_router)
 app.include_router(infor_router)
 
 @app.on_event("startup")
-def startup():
+async def startup():
     print("Starting up...")
-    init_db()
+    await init_db()
     print("Startup complete.")
